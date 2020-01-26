@@ -185,7 +185,6 @@ def get_street_name_from_line(line, command, command_format):
         return None
 
     if line_new[0] != ' ':
-        print(f'line={line_new[0]}')
         print_out(
             f"Error: Street name should be seperated by whitespace after command"
             f" character, valid format for '{command}' command is '{command_format}'"
