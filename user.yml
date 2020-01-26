@@ -1,7 +1,8 @@
 --- # Personal information
-first: FIRST_NAME
-last: LAST_NAME
-watiam: WATIAM_ID
-student: STUDENT_ID
-email: email
-...
+first: .
+last: MAMTA
+watiam: mmamta
+student: 20867979
+email: mmamta@uwaterloo.ca
+hours: 35
+---
