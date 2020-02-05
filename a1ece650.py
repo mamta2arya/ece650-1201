@@ -67,7 +67,7 @@ def get_intersection_of_two_lines(l1_x1, l1_y1, l1_x2, l1_y2, l2_x1, l2_y1, l2_x
         # to check x, y are on segment of both lines
         if is_on_line_segment(l1_x1, l1_y1, l1_x2, l1_y2, x, y) and \
                 is_on_line_segment(l2_x1, l2_y1, l2_x2, l2_y2, x, y):
-            return (x, y)
+            return (round(x, 2), round(y, 2))
 
     return None
 
@@ -165,7 +165,7 @@ def get_all_edges_from_intersections(intersections_data):
 def print_graph(vertices, edges):
     print_out('V = {')
     for index, vertex in enumerate(vertices):
-        print_out(f'  {index}:  ({vertex[0]}, {vertex[1]})')
+        print_out(f'  {index}:  ({vertex[0]:.2f}, {vertex[1]:.2f})')
     print_out('}')
     print_out('E = {')
     for edge in edges:
@@ -213,15 +213,7 @@ def get_street_name_from_line(line, command, command_format):
     street_name = street_name.lower()
     return street_name
 
-
-def get_street_name_and_vertices_from_line(line, command, command_format):
-    # extract street name first
-    street_name = get_street_name_from_line(line, command, command_format)
-
-    if not street_name:
-        return (None, None)
-
-    # extract street vertices
+def get_vertices_from_line(line, command, command_format):
     line_split = line.rsplit('"', maxsplit=1)
 
     street_vertices_str = line_split[1].strip()
@@ -232,9 +224,53 @@ def get_street_name_and_vertices_from_line(line, command, command_format):
         )
         return (None, None)
 
-    street_vertices_list = street_vertices_str.split(' ')
+    street_vertices = []
 
-    if not street_vertices_list or len(street_vertices_list) < 2:
+    open_brace_count = street_vertices_str.count('(')
+    close_brace_count = street_vertices_str.count(')')
+    if open_brace_count != close_brace_count:
+        print_out(
+            f"Error: Invalid format for '{command}' command"
+        )
+        return (None, None)
+    
+    street_vertices_str = street_vertices_str.replace(" ", "")
+    street_vertices_str = street_vertices_str.replace(")(", ",")
+    street_vertices_str = street_vertices_str.replace(")", "")
+    street_vertices_str = street_vertices_str.replace("(", "")
+    street_vertices_str = street_vertices_str.replace(",", " ")
+
+    vertices = []
+    street_vertices_str = street_vertices_str.split(' ')
+    vertices = [x for x in street_vertices_str if x != ""]
+    
+    vertex_coor_even = vertices[0::2]
+    vertex_coor_odd = vertices[1::2]
+    
+    if len(vertex_coor_even) != len(vertex_coor_odd):
+        print_out(
+            f"Error: Invalid format for '{command}' command"
+        )
+        return (None, None)
+    
+
+    for i in range(len(vertex_coor_even)):
+        street_vertices.append((float(vertex_coor_even[i]), float(vertex_coor_odd[i])))
+ 
+    return street_vertices
+
+
+def get_street_name_and_vertices_from_line(line, command, command_format):
+    # extract street name first
+    street_name = get_street_name_from_line(line, command, command_format)
+
+    if not street_name:
+        return (None, None)
+
+    # extract street vertices
+    street_vertices = get_vertices_from_line(line, command, command_format)
+
+    if not street_vertices or len(street_vertices) < 2:
         # not a valid format for vertices, we got empty list
         print_out(
             f"Error: Required atleast two vertices for a street and each should be"
@@ -242,51 +278,7 @@ def get_street_name_and_vertices_from_line(line, command, command_format):
             f" '{command}' command is '{command_format}'"
         )
         return (None, None)
-
-    street_vertices = []
-    for street_vertex_str in street_vertices_list:
-        street_vertex_str = street_vertex_str.strip()
-
-        street_vertex_str_orig = street_vertex_str
-
-        # street_vertex_str = '(1,2)'
-        if street_vertex_str[0] != "(" or street_vertex_str[-1] != ")":
-            print_out(
-                f"Error: '{street_vertex_str_orig}' vertex is not in valid format"
-                f" in command, valid format for '{command}' command is '{command_format}'"
-            )
-            return (None, None)
-
-        street_vertex_str = street_vertex_str.replace('(', '')
-        street_vertex_str = street_vertex_str.replace(')', '')
-
-        # street_vertex_str = '1,2'
-        if ',' not in street_vertex_str or street_vertex_str.count(',') != 1:
-            print_out(
-                f"Error: Coordinates in '{street_vertex_str_orig}' vertex should"
-                f" seperated by atmost one comma character in command, valid"
-                f" format for '{command}' command is '{command_format}'"
-            )
-            return (None, None)
-
-        x, y = street_vertex_str.split(',')
-        try:
-            x = float(x)
-            y = float(y)
-        except ValueError:
-            # atleast one of them is not a valid integer
-            print_out(
-                f"Error: Coordinates in '{street_vertex_str_orig}' vertex should"
-                f" be of integer (i.e 1) or float (i.e 1.0) type"
-            )
-            return (None, None)
-
-        # assume x and y are valid integers
-        street_vertex = (x, y)
-
-        # add vertex to street vertices
-        street_vertices.append(street_vertex)
-
+    
     return street_name, street_vertices
 
 
@@ -325,8 +317,16 @@ def processs_change_street_command(line):
 
 def process_remove_street_command(line):
     street_name = get_street_name_from_line(line, 'r', 'r "street name"')
-
+    
     if not street_name:
+        return
+
+    # check after street name
+    line_split = line.rsplit('"', maxsplit=1)
+    if line_split[1].strip():
+        print_out(
+            f"Error: Invalid format for 'r' command"
+        )
         return
 
     if street_name in store:
@@ -355,6 +355,7 @@ def process_print_graph_command(line):
 
     # add these vertices to vertices store
     vertices_store.update(graph_vertices)
+def get_index_of_vertex(vertex):
 
     # find all valid edges from intersections
     graph_edges = get_all_edges_from_intersections(all_intersections)
@@ -363,7 +364,6 @@ def process_print_graph_command(line):
     print_graph(graph_vertices, graph_edges)
 
 
-def get_index_of_vertex(vertex):
     if vertex in vertices_store:
         return list(vertices_store).index(vertex)
     return None
@@ -402,7 +402,6 @@ def main():
                 f"Error: '{command}' is not a valid command, valid commands"
                 f" are 'a', 'c', 'r' and 'g' ."
             )
-
 
 if __name__ == "__main__":
     while True:
