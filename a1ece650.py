@@ -164,7 +164,8 @@ def get_all_edges_from_intersections(intersections_data):
 
 def print_graph(vertices, edges):
     print_out('V = {')
-    for index, vertex in enumerate(vertices):
+    for vertex in vertices:
+        index = get_index_of_vertex(vertex)
         print_out(f'  {index}:  ({vertex[0]:.2f}, {vertex[1]:.2f})')
     print_out('}')
     print_out('E = {')
