@@ -355,7 +355,6 @@ def process_print_graph_command(line):
 
     # add these vertices to vertices store
     vertices_store.update(graph_vertices)
-def get_index_of_vertex(vertex):
 
     # find all valid edges from intersections
     graph_edges = get_all_edges_from_intersections(all_intersections)
@@ -364,6 +363,7 @@ def get_index_of_vertex(vertex):
     print_graph(graph_vertices, graph_edges)
 
 
+def get_index_of_vertex(vertex):
     if vertex in vertices_store:
         return list(vertices_store).index(vertex)
     return None
@@ -402,6 +402,7 @@ def main():
                 f"Error: '{command}' is not a valid command, valid commands"
                 f" are 'a', 'c', 'r' and 'g' ."
             )
+
 
 if __name__ == "__main__":
     while True:
