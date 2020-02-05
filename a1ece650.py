@@ -157,7 +157,7 @@ def get_all_edges_from_intersections(intersections_data):
             vertex1_id = get_index_of_vertex(vertex1)
             vertex2_id = get_index_of_vertex(vertex2)
             
-            if vertex1_id is not None and vertex2_id is not None:
+            if vertex1_id is not None and vertex2_id is not None and vertex1_id != vertex2_id:
                 edges.append((vertex1_id, vertex2_id))
     return edges
 
