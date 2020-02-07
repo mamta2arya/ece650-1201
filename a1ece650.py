@@ -4,6 +4,9 @@
 import sys
 import re
 
+# whether to print debug logs or not
+DEBUG = False
+
 
 def print_out(line):
     print(line, file=sys.stdout)
@@ -13,8 +16,18 @@ def print_err(line):
     print(line, file=sys.stderr)
 
 
+def print_debug(line):
+    if DEBUG:
+        print(line, file=sys.stdout)
+
+
 def point_to_float(point):
-    return (float(point[0]), float(point[1]))
+    point = (float(point[0]), float(point[1]))
+    if point[0] == -0.00:
+        point = (0.00, point[1])
+    if point[1] == -0.00:
+        point = (point[0], 0.00)
+    return point
 
 
 def is_on_line_segment(l_x1, l_y1, l_x2, l_y2, x, y):
@@ -73,9 +86,10 @@ def get_intersection_of_two_lines(l1_x1, l1_y1, l1_x2, l1_y2, l2_x1, l2_y1, l2_x
 
 
 def get_intersections_data_of_two_streets(street1, street2):
+    print_debug(f'Processing street1="{street1}" and street2="{street2}"')
     s1 = store.get(street1, [])
     s2 = store.get(street2, [])
-
+    
     # a list of tuples, each tuple will store intersecton and lines related to
     # that intersection
     intersections_data = []
@@ -83,11 +97,14 @@ def get_intersections_data_of_two_streets(street1, street2):
     for l1_p1, l1_p2 in zip(s1, s1[1:]):
         for l2_p1, l2_p2 in zip(s2, s2[1:]):
 
-            # coerce each point coordinates to float, if not
-            l1_p1 = point_to_float(l1_p1)
-            l1_p2 = point_to_float(l1_p2)
-            l2_p1 = point_to_float(l2_p1)
-            l2_p2 = point_to_float(l2_p2)
+            # # coerce each point coordinates to float, if not
+            # l1_p1 = point_to_float(l1_p1)
+            # l1_p2 = point_to_float(l1_p2)
+            # l2_p1 = point_to_float(l2_p1)
+            # l2_p2 = point_to_float(l2_p2)
+
+            print_debug(f'Finding intersection between Line1=[{l1_p1}, {l1_p2}] '
+                f'and Line2=[({l2_p1}, {l2_p2}]')
 
             intersection = get_intersection_of_two_lines(
                 l1_p1[0], l1_p1[1],  # line1 start point
@@ -95,10 +112,12 @@ def get_intersections_data_of_two_streets(street1, street2):
                 l2_p1[0], l2_p1[1],  # line2 start point
                 l2_p2[0], l2_p2[1],  # line2 endpoint
             )
+
             if intersection is None:
                 pass
             else:
                 intersection = point_to_float(intersection)
+                print_debug('Found intersection at {intersection}')
 
                 intersections_data.append(
                     (intersection,
@@ -106,6 +125,7 @@ def get_intersections_data_of_two_streets(street1, street2):
                      [l2_p1, l2_p2],  # line2
                      )
                 )
+    print_debug(f'intersections_data={intersections_data}')
     return intersections_data
 
 
@@ -115,6 +135,25 @@ def get_pairs(arr):
         for p2 in range(p1+1, len(arr)):
             result.append([arr[p1], arr[p2]])
     return result
+
+
+def is_edge_exist(edges, edge):
+    if edge in edges or (edge[1], edge[0]) in edges:
+        return True
+    else:
+        return False
+
+
+def add_edge_to_edges(edges, edge):
+    if edge[0] is not None and edge[1] is not None \
+        and edge[0] != edge[1] and not is_edge_exist(edges, edge):
+            edges.append(edge)
+
+
+def add_vertices_to_store(vertices):
+    for vertex in vertices:
+        if vertex not in vertices_store:
+            vertices_store.append(vertex)
 
 
 def get_all_vertices_from_intersections(intersections_data):
@@ -133,7 +172,7 @@ def get_all_vertices_from_intersections(intersections_data):
     return vertices
 
 
-def get_all_edges_from_intersections(intersections_data):
+def get_all_edges_from_intersections(vertices, intersections_data):
     # a list of tuples, each tuple will contain id of vertices related to edge
     edges = []
     for intersection_data in intersections_data:
@@ -150,15 +189,52 @@ def get_all_edges_from_intersections(intersections_data):
         intersection_edges.append(
             [intersection_data[0], intersection_data[2][1]])
 
+        print_debug(f'intersection_edges={intersection_edges}')
         for intersection_edge in intersection_edges:
-            vertex1 = intersection_edge[0]
-            vertex2 = intersection_edge[1]
 
-            vertex1_id = get_index_of_vertex(vertex1)
-            vertex2_id = get_index_of_vertex(vertex2)
-            
-            if vertex1_id is not None and vertex2_id is not None and vertex1_id != vertex2_id:
-                edges.append((vertex1_id, vertex2_id))
+            vertices_between_intersection_edge = []
+            for vertex in vertices:
+                # if this intersection edge
+                if vertex != intersection_edge[0] and \
+                   vertex != intersection_edge[1] and \
+                   is_on_line_segment(
+                    intersection_edge[0][0],
+                    intersection_edge[0][1],
+                    intersection_edge[1][0],
+                    intersection_edge[1][1],
+                    vertex[0], vertex[1]
+                ):
+                    vertices_between_intersection_edge.append(vertex)
+                    print_debug(
+                        f'vertex={vertex} is between {intersection_edge}')
+
+            if vertices_between_intersection_edge:
+                vertices = [ intersection_edge[0], ] + \
+                    vertices_between_intersection_edge + \
+                    [ intersection_edge[1], ]
+                print_debug(f'new vertices {vertices} for intersection_edge={intersection_edge}')
+                
+                for i, vertex1 in enumerate(vertices):
+                    if i+1 < len(vertices):
+                        vertex2 = vertices[i+1]
+                        print_debug(f'vertex1={vertex1} and vertex2={vertex2}')
+
+                        vertex1_id = get_index_of_vertex(vertex1)
+                        vertex2_id = get_index_of_vertex(vertex2)
+
+                        edge = (vertex1_id, vertex2_id)
+                        add_edge_to_edges(edges, edge)
+
+            else:
+                vertex1 = intersection_edge[0]
+                vertex2 = intersection_edge[1]
+
+                vertex1_id = get_index_of_vertex(vertex1)
+                vertex2_id = get_index_of_vertex(vertex2)
+
+                edge = (vertex1_id, vertex2_id)
+                add_edge_to_edges(edges, edge)
+
     return edges
 
 
@@ -214,6 +290,7 @@ def get_street_name_from_line(line, command, command_format):
     street_name = street_name.lower()
     return street_name
 
+
 def get_vertices_from_line(line, command, command_format):
     line_split = line.rsplit('"', maxsplit=1)
 
@@ -234,7 +311,7 @@ def get_vertices_from_line(line, command, command_format):
             f"Error: Invalid format for '{command}' command"
         )
         return (None, None)
-    
+
     street_vertices_str = street_vertices_str.replace(" ", "")
     street_vertices_str = street_vertices_str.replace(")(", ",")
     street_vertices_str = street_vertices_str.replace(")", "")
@@ -244,20 +321,20 @@ def get_vertices_from_line(line, command, command_format):
     vertices = []
     street_vertices_str = street_vertices_str.split(' ')
     vertices = [x for x in street_vertices_str if x != ""]
-    
+
     vertex_coor_even = vertices[0::2]
     vertex_coor_odd = vertices[1::2]
-    
+
     if len(vertex_coor_even) != len(vertex_coor_odd):
         print_out(
             f"Error: Invalid format for '{command}' command"
         )
         return (None, None)
-    
 
     for i in range(len(vertex_coor_even)):
-        street_vertices.append((float(vertex_coor_even[i]), float(vertex_coor_odd[i])))
- 
+        street_vertices.append(
+            (float(vertex_coor_even[i]), float(vertex_coor_odd[i])))
+
     return street_vertices
 
 
@@ -279,7 +356,7 @@ def get_street_name_and_vertices_from_line(line, command, command_format):
             f" '{command}' command is '{command_format}'"
         )
         return (None, None)
-    
+
     return street_name, street_vertices
 
 
@@ -298,6 +375,9 @@ def process_add_street_command(line):
     else:
         store[street_name] = street_vertices
 
+        # add street vertices to store also
+        add_vertices_to_store(street_vertices)
+
 
 def processs_change_street_command(line):
     street_name, street_vertices = get_street_name_and_vertices_from_line(
@@ -309,6 +389,9 @@ def processs_change_street_command(line):
     if street_name in store:
         # change command
         store[street_name] = street_vertices
+
+        # add street vertices to store also
+        add_vertices_to_store(street_vertices)
     else:
         print_err(
             f"Error: Street '{street_name}' does not exists, please use 'a'"
@@ -318,7 +401,7 @@ def processs_change_street_command(line):
 
 def process_remove_street_command(line):
     street_name = get_street_name_from_line(line, 'r', 'r "street name"')
-    
+
     if not street_name:
         return
 
@@ -341,6 +424,8 @@ def process_remove_street_command(line):
 
 
 def process_print_graph_command(line):
+    print_debug(f'Store={store}')
+
     # get pairs of streets
     streets = store.keys()
     street_pairs = get_pairs(list(streets))
@@ -353,12 +438,16 @@ def process_print_graph_command(line):
 
     # find all valid vertices from intersections
     graph_vertices = get_all_vertices_from_intersections(all_intersections)
+    print_debug(f'graph_vertices={graph_vertices}')
 
     # add these vertices to vertices store
-    vertices_store.update(graph_vertices)
+    add_vertices_to_store(graph_vertices)
+    print_debug(f'vertices_store={vertices_store}')
 
     # find all valid edges from intersections
-    graph_edges = get_all_edges_from_intersections(all_intersections)
+    graph_edges = get_all_edges_from_intersections(
+        graph_vertices, all_intersections)
+    print_debug(f'graph_edges={graph_edges}')
 
     # print graph
     print_graph(graph_vertices, graph_edges)
@@ -366,8 +455,9 @@ def process_print_graph_command(line):
 
 def get_index_of_vertex(vertex):
     if vertex in vertices_store:
-        return list(vertices_store).index(vertex)
+        return vertices_store.index(vertex)
     return None
+
 
 # create a empty store for storing street data
 # each key will be stree name and value will be a list of tuples, each tuple
@@ -377,7 +467,7 @@ store = {}
 # create a empty store for storing all unique vertices
 # index of each vertex in store will be it's unqiue id which will be same
 # throughout each execution of this program
-vertices_store = set()
+vertices_store = []
 
 
 def main():
